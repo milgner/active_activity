@@ -8,9 +8,10 @@ module ActiveActivity
     # Once started, jobs are in the `running` key which is also used to start the system
     # back up after a shutdown.
     class RedisBackend
-      KEY_PREFIX = "active_activity."
+      KEY_PREFIX = 'active_activity.'
+      DEFAULT_URL = 'redis://localhost:6379/2'
 
-      def initialize(url)
+      def initialize(url = DEFAULT_URL)
         @redis = Redis.new(url: url)
       end
 
@@ -31,7 +32,7 @@ module ActiveActivity
       # @return [Array] array containing class name, args and kwargs
       def handle_new_activities(timeout, cancellation)
         loop do
-          key, new_activity = @redis.blpop(key_name('start'), key_name('stop'), timeout: interval_s)
+          key, new_activity = @redis.blpop(key_name('start'), key_name('stop'), timeout: timeout)
           return if cancellation.canceled?
           next if key.nil? # no new activities in this cycle
           command = extract_command(key)

@@ -6,7 +6,8 @@ source "https://rubygems.org"
 gemspec
 
 gem "rake", "~> 13.0"
-
+# It's an optional dependency: don't list it in the gemspec, but have it here for tests
+gem 'redis', '~> 4.6'
 gem "rspec", "~> 3.0"
 
 gem "rubocop", "~> 1.7"

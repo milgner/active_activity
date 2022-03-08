@@ -48,6 +48,9 @@ Or install it yourself as:
 Similar to Sidekiq, Que and other ActiveJob backends, you'll need to start a process which is responsible for
 picking up und starting active activities.
 
+Execute `rake active_activity:run` to start the process. This is only necessary in `production` mode, though:
+in `development` mode, starting the server will also start a Thread with an activity runner.
+
 Redis configuration will be taken from `REDIS_URL` or can be specified in a configuration block.
 
 ```ruby

@@ -1,3 +1,8 @@
+# frozen_string_literal: true
+
+require 'concurrent-ruby-edge/concurrent/edge/cancellation'
+require 'concurrent-ruby/concurrent/executor/cached_thread_pool'
+
 module ActiveActivity
 
   class Runner
