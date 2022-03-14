@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'active_support/concern'
+
 module ActiveActivity
   module Activity
     extend ActiveSupport::Concern
@@ -10,13 +12,13 @@ module ActiveActivity
       # It is recommended to keep the method signature simple. You can use GlobalID to
       # pass in objects.
       def start(*args, **kwargs)
-        ActiveActivity.configuration.backend.start(self, args, kwargs)
+        ActiveActivity.config.backend.start_activity(self, args, kwargs)
       end
 
       # Arguments passed to `stop` must match those from the corresponding `start` call
       # or the system won't be able to match the activity
       def stop(*args, **kwargs)
-        ActiveActivity.configuration.backend.stop(self, args, kwargs)
+        ActiveActivity.config.backend.stop_activity(self, args, kwargs)
       end
     end
   end

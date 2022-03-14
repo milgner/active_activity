@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
+require 'rails' rescue LoadError
 require_relative 'runner'
 
 module ActiveActivity
-  class Railtie < Rails::Railtie
+  class Railtie < ::Rails::Railtie
     rake_tasks do
       load 'active_activity/activity_tasks.rake'
     end

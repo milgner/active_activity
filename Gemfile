@@ -11,3 +11,7 @@ gem 'redis', '~> 4.6'
 gem "rspec", "~> 3.0"
 
 gem "rubocop", "~> 1.7"
+
+gem 'pry'
+gem 'pry-byebug'
+gem 'byebug'

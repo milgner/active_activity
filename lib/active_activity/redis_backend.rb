@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'redis' rescue LoadError
+
 module ActiveActivity
   if defined?(Redis)
     # The main backend for production use via Redis
@@ -15,14 +17,37 @@ module ActiveActivity
         @redis = Redis.new(url: url)
       end
 
+      def initialize_copy(orig)
+        @redis = Redis.new(orig.redis_connection)
+      end
+
+      def redis_connection
+        @redis_connection ||= @redis.connection.dup
+      end
+
       # Invoked by the activity when it wants to start
       def start_activity(clazz, args = [], kwargs = {})
         encoded = encode('start', clazz, args, kwargs)
-        @redis.push(key_name('command'), encoded)
+        @redis.rpush(key_name('command'), encoded)
+      end
+
+      def stop_activity(clazz, args = [], kwargs = {})
+        encoded = encode('stop', clazz, args, kwargs)
+        @redis.rpush(key_name('command'), encoded)
+      end
+
+      def reset
+        @redis.del(running_key)
+        @redis.del(key_name('command'))
       end
 
       def running_activities
-        @redis.get(key_name('running')) || []
+        running = @redis.get(running_key)
+        running ? JSON.parse(running) : []
+      end
+
+      def ready
+        @redis.connected?
       end
 
       # Returns with information about a new job
@@ -32,19 +57,38 @@ module ActiveActivity
       # @return [Array] array containing class name, args and kwargs
       def handle_new_activities(timeout, cancellation)
         loop do
-          key, new_activity = @redis.blpop(key_name('start'), key_name('stop'), timeout: timeout)
+          # FIXME: if this statement isn't there, redis gem will never return
+          # either here or in the corresponding rpush
+          puts ""
+          key, new_activity = @redis.blpop(key_name('command'), timeout: timeout)
           return if cancellation.canceled?
           next if key.nil? # no new activities in this cycle
-          command = extract_command(key)
-          yield command, *decode(new_activity)
+
+          args = decode(new_activity)
+          yield *args
+
+          update_running(args)
         end
       end
 
       private
 
+      def update_running(args)
+        cmd = args.shift
+        updated_activities = if cmd == :start
+                               running_activities + args
+                             else
+                               running_activities.tap { |a| a.delete(args) }
+                             end
+        @redis.set(running_key, JSON.dump(updated_activities))
+      end
+
+      def running_key
+        @running_key ||= key_name('running')
+      end
+
       # @return [Symbol] either :start or :stop
-      def extract_command(key_name)
-        cmd = /\.(\w+)$/.match(key_name)[1]
+      def check_command(cmd)
         raise ArgumentError unless %w[start stop].include?(cmd)
         cmd.to_sym
       end
@@ -54,7 +98,8 @@ module ActiveActivity
       end
 
       def decode(encoded)
-        JSON.parse(encoded).fetch_values('clazz', 'args', 'kwargs')
+        cmd, clazz, args, kwargs = JSON.parse(encoded).fetch_values('command', 'clazz', 'args', 'kwargs')
+        [check_command(cmd), clazz, args, kwargs.with_indifferent_access]
       end
 
       def encode(command, clazz, args, kwargs)
