@@ -41,7 +41,7 @@ module ActiveActivity
 
     def backend
       # TODO: make back-end configurable
-      ActiveActivity.config.backend ||= RedisBackend.new
+      @backend ||= ActiveActivity.config.backend&.dup || RedisBackend.new
     end
 
     def stop_activity(args)
@@ -51,8 +51,17 @@ module ActiveActivity
         $stderr << "Asked to stop activity which isn't running: #{key}"
         $stderr.flush
       else
-        puts "Stopping activity #{key}"
+        msg = "Stopping activity #{key}"
+        log_info(msg)
         cancellation.resolve
+      end
+    end
+
+    def log_info(msg)
+      if defined?(Rails)
+        Rails.logger.info(msg)
+      else
+        puts msg
       end
     end
 
@@ -67,12 +76,27 @@ module ActiveActivity
 
     def instantiate_and_run(activity_cancellation, args)
       clazz, args, kwargs = args
-      instance = clazz.constantize.new(*args, **kwargs)
-      instance.perform(activity_cancellation)
-      # TODO: handle errors & restart
-    rescue => err
-      binding.pry
-      puts err.to_s
+      run_until_stopped(activity_cancellation, clazz, args, kwargs)
+    end
+
+    def run_until_stopped(activity_cancellation, clazz, args, kwargs)
+      loop do
+        begin
+          instance = clazz.constantize.new(*args, **kwargs)
+          instance.perform(activity_cancellation)
+        rescue => err
+          msg = "Activity errored, going to restart: #{err}"
+          log_error(msg)
+        end
+      end
+    end
+
+    def log_error(err)
+      if defined?(Rails)
+        Rails.logger.error(err)
+      else
+        $stderr.puts(err)
+      end
     end
 
     def cancellation_key(args)

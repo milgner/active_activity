@@ -57,9 +57,6 @@ module ActiveActivity
       # @return [Array] array containing class name, args and kwargs
       def handle_new_activities(timeout, cancellation)
         loop do
-          # FIXME: if this statement isn't there, redis gem will never return
-          # either here or in the corresponding rpush
-          puts ""
           key, new_activity = @redis.blpop(key_name('command'), timeout: timeout)
           return if cancellation.canceled?
           next if key.nil? # no new activities in this cycle

@@ -15,20 +15,22 @@ module ActiveActivity
       expect(redis_connection[:db]).to eq 2
     end
 
-
     describe '#handle_new_activities' do
       before(:all) { described_class.new.reset }
 
       let(:clazz) { TestActivity.to_s }
       let(:args) { ['arg1', 'arg2'] }
-      let(:kwargs) { { kwarg1: 'foo', kwarg2: 'bar' } }
+      let(:kwargs) { { 'kwarg1' => 'foo', 'kwarg2' => 'bar' } }
 
       it 'passes start and stop requests to block until the cancellation happens' do
         subject.start_activity(clazz, args, kwargs)
 
         cancellation, origin = Concurrent::Cancellation.new
         Concurrent::Promises.schedule(0.5).on_resolution { origin.resolve }
-        Concurrent::Promises.schedule(0.3).on_resolution { subject.stop_activity(clazz, args, kwargs) }
+        Concurrent::Promises.schedule(0.3).on_resolution do
+          # do a `dup` to simulate actual usage and prevent deadlock of the Redis object when used across threads
+          subject.dup.stop_activity(clazz, args, kwargs)
+        end
         expect { |b| subject.handle_new_activities(0.1, cancellation, &b) }.to(
           yield_successive_args([:start, clazz, args, kwargs], [:stop, clazz, args, kwargs])
         )
