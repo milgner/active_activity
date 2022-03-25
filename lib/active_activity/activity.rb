@@ -21,5 +21,12 @@ module ActiveActivity
         ActiveActivity.config.backend.stop_activity(self, args, kwargs)
       end
     end
+
+    def wait_for_cancellation(cancellation)
+      loop do
+        cancellation.origin.to_future.wait!
+        break if cancellation.canceled?
+      end
+    end
   end
 end

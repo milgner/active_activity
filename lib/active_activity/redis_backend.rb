@@ -58,7 +58,7 @@ module ActiveActivity
       def handle_new_activities(timeout, cancellation)
         loop do
           key, new_activity = @redis.blpop(key_name('command'), timeout: timeout)
-          return if cancellation.canceled?
+          break if cancellation.canceled?
           next if key.nil? # no new activities in this cycle
 
           args = decode(new_activity)
@@ -73,7 +73,7 @@ module ActiveActivity
       def update_running(args)
         cmd = args.shift
         updated_activities = if cmd == :start
-                               running_activities + args
+                               running_activities + [args]
                              else
                                running_activities.tap { |a| a.delete(args) }
                              end
@@ -109,5 +109,7 @@ module ActiveActivity
                   })
       end
     end
+  else
+    $stderr.puts("Redis not loaded, Redis backend won't be available")
   end
 end

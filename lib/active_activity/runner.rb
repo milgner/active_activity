@@ -35,9 +35,17 @@ module ActiveActivity
         when :stop then stop_activity(args)
         end
       end
+      shutdown
     end
 
     private
+
+    def shutdown
+      @executor.kill
+      # No need to resolve all the cancellation origins because they're chained
+      # to the global cancellation which has been triggered at this point
+      @executor.wait_for_termination(5)
+    end
 
     def backend
       # TODO: make back-end configurable
@@ -66,8 +74,14 @@ module ActiveActivity
     end
 
     def start_activity(args)
+      key = cancellation_key(args)
+      if @task_cancellations.key?(key)
+        log_info("Activity already running, ignoring command to start again: #{key}")
+        return
+      end
+
       activity_cancellation, activity_cancellation_origin = Concurrent::Cancellation.new
-      @task_cancellations[cancellation_key(args)] = activity_cancellation_origin
+      @task_cancellations[key] = activity_cancellation_origin
       activity_cancellation = activity_cancellation.join(@global_cancellation)
       @executor.post(activity_cancellation, args) do |activity_cancellation, args|
         instantiate_and_run(activity_cancellation, args)
@@ -75,20 +89,31 @@ module ActiveActivity
     end
 
     def instantiate_and_run(activity_cancellation, args)
-      clazz, args, kwargs = args
-      run_until_stopped(activity_cancellation, clazz, args, kwargs)
+      class_name, args, kwargs = args
+      run_until_stopped(activity_cancellation, class_name, args, kwargs)
     end
 
-    def run_until_stopped(activity_cancellation, clazz, args, kwargs)
+    def run_until_stopped(activity_cancellation, class_name, args, kwargs)
+      log_info("Starting activtiy: #{class_name}[#{args}, #{kwargs}")
       loop do
         begin
-          instance = clazz.constantize.new(*args, **kwargs)
+          instance = instantiate(class_name, args, kwargs) || return
           instance.perform(activity_cancellation)
+          # check if `perform` returned because of proper cancellation or because of some other error
+          return if activity_cancellation.canceled?
         rescue => err
           msg = "Activity errored, going to restart: #{err}"
           log_error(msg)
         end
       end
+    end
+
+    def instantiate(class_name, args, kwargs)
+      clazz = class_name.constantize
+      clazz.new(*args, **kwargs)
+    rescue NameError => err
+      log_error("Failed to instantiate activity, the class does not exist anymore: #{class_name}")
+      nil
     end
 
     def log_error(err)
@@ -106,7 +131,9 @@ module ActiveActivity
     def stop
       # can't directly access from within signal handlers
       # this is a sub-optimal workaround
-      Thread.new { @global_cancellation_origin.resolve }
+      Thread.new do
+        @global_cancellation_origin.resolve
+      end
     end
   end
 end
