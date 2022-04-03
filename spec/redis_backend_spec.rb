@@ -8,11 +8,21 @@ require_relative 'test_activity'
 module ActiveActivity
   RSpec.describe RedisBackend do
     it 'instantiates based on a default URL' do
+      allow(ENV).to receive(:[]).with('REDIS_URL').and_return(nil)
       redis_connection = subject.redis_connection
       expect(redis_connection).to be_a Hash
       expect(redis_connection[:host]).to eq 'localhost'
       expect(redis_connection[:port]).to eq 6379
       expect(redis_connection[:db]).to eq 0
+    end
+
+    it 'uses REDIS_URL environment variable if present' do
+      allow(ENV).to receive(:[]).with('REDIS_URL').and_return("redis://foobar:9876/5")
+      redis_connection = subject.redis_connection
+      expect(redis_connection).to be_a Hash
+      expect(redis_connection[:host]).to eq 'foobar'
+      expect(redis_connection[:port]).to eq 9876
+      expect(redis_connection[:db]).to eq 5
     end
 
     describe '#handle_new_activities' do
