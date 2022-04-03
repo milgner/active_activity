@@ -13,14 +13,16 @@ module ActiveActivity
 
     it 'starts and stops activities' do
       instance, cancellation = described_class.new(config)
-      expect_any_instance_of(TestActivity).to receive(:perform).with(kind_of(Concurrent::Cancellation)).and_call_original
+      expect_any_instance_of(TestActivity).to receive(:perform)
+        .with(kind_of(Concurrent::Cancellation))
+        .and_call_original
       expect_any_instance_of(TestActivity).to receive(:stopping_now)
 
       Concurrent::Promises.schedule(2).on_resolution { cancellation.resolve }
-      Concurrent::Promises.schedule(0.1).on_resolution {
+      Concurrent::Promises.schedule(0.1).on_resolution do
         TestActivity.start('arg1', 'arg2', kwarg1: 'foo', kwarg2: 'bar')
         TestActivity.stop('arg1', 'arg2', kwarg1: 'foo', kwarg2: 'bar')
-      }
+      end
       instance.start
       # no proper way to test whether this really returns :(
       sleep 0.5

@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
-require 'redis' rescue LoadError
+begin
+  require 'redis'
+rescue StandardError
+  LoadError
+end
 
-module ActiveActivity
+module ActiveActivity # rubocop:disable Style/Documentation
   if defined?(Redis)
     # The main backend for production use via Redis
     #
@@ -76,7 +80,7 @@ module ActiveActivity
           next if key.nil? # no new activities in this cycle
 
           args = decode(new_activity)
-          yield *args
+          yield(*args)
 
           update_running(args)
         end
@@ -101,6 +105,7 @@ module ActiveActivity
       # @return [Symbol] either :start or :stop
       def check_command(cmd)
         raise ArgumentError unless %w[start stop].include?(cmd.to_s)
+
         cmd.to_sym
       end
 
@@ -109,7 +114,8 @@ module ActiveActivity
       end
 
       def decode(encoded)
-        cmd, clazz, args, kwargs = JSON.parse(encoded, symbolize_names: true).fetch_values(:command, :clazz, :args, :kwargs)
+        cmd, clazz, args, kwargs = JSON.parse(encoded, symbolize_names: true).fetch_values(:command, :clazz, :args,
+                                                                                           :kwargs)
         [check_command(cmd), clazz, args, kwargs.with_indifferent_access]
       end
 
@@ -130,10 +136,11 @@ module ActiveActivity
 
       def environment_specific_database_number
         return DEFAULT_DB unless defined?(Rails) && Rails.env.test?
+
         DEFAULT_DB_TESTS
       end
     end
   else
-    $stderr.puts("Redis not loaded, Redis backend won't be available")
+    warn("Redis not loaded, Redis backend won't be available")
   end
 end

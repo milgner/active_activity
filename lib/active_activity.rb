@@ -4,7 +4,7 @@ require 'active_support/configurable'
 require 'active_support'
 require 'active_support/core_ext'
 
-require_relative "active_activity/version"
+require_relative 'active_activity/version'
 require_relative 'active_activity/redis_backend'
 require_relative 'active_activity/activity'
 
@@ -20,11 +20,9 @@ module ActiveActivity
     private
 
     def default_backend
-      if defined?(RedisBackend)
-        RedisBackend.new(self.config.redis_url)
-      else
-        raise 'No activity backend configured and no Redis available for default backend'
-      end.tap do |backend|
+      raise 'No activity backend configured and no Redis available for default backend' unless defined?(RedisBackend)
+
+      RedisBackend.new(config.redis_url).tap do |backend|
         # prevent it from starting anything left-over from previous tests
         backend.reset if defined?(Rails) && Rails.env.test?
       end

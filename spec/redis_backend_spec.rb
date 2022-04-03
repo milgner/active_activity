@@ -17,7 +17,7 @@ module ActiveActivity
     end
 
     it 'uses REDIS_URL environment variable if present' do
-      allow(ENV).to receive(:[]).with('REDIS_URL').and_return("redis://foobar:9876/5")
+      allow(ENV).to receive(:[]).with('REDIS_URL').and_return('redis://foobar:9876/5')
       redis_connection = subject.redis_connection
       expect(redis_connection).to be_a Hash
       expect(redis_connection[:host]).to eq 'foobar'
@@ -29,7 +29,7 @@ module ActiveActivity
       before(:all) { described_class.new.reset }
 
       let(:clazz) { TestActivity.to_s }
-      let(:args) { ['arg1', 'arg2'] }
+      let(:args) { %w[arg1 arg2] }
       let(:kwargs) { { 'kwarg1' => 'foo', 'kwarg2' => 'bar' } }
 
       it 'passes start and stop requests to block until the cancellation happens' do

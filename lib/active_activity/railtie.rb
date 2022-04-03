@@ -3,6 +3,7 @@
 require_relative 'runner'
 
 module ActiveActivity
+  # Rails-integration for ActiveActivity
   class Railtie < ::Rails::Railtie
     rake_tasks do
       load 'active_activity/activity_tasks.rake'
@@ -18,7 +19,7 @@ module ActiveActivity
       next unless Rails.development?
 
       Thread.new do
-        Rails.logger.info("[ActiveActivity] development environment detected, starting activity runner in server")
+        Rails.logger.info('[ActiveActivity] development environment detected, starting activity runner in server')
         ActiveActivity::Runner.new(ActiveActivity.config).start
       end
     end
