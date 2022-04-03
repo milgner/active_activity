@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'rails' rescue LoadError
 require_relative 'runner'
 
 module ActiveActivity
@@ -19,6 +18,7 @@ module ActiveActivity
       next unless Rails.development?
 
       Thread.new do
+        Rails.logger.info("[ActiveActivity] development environment detected, starting activity runner in server")
         ActiveActivity::Runner.new(ActiveActivity.config).start
       end
     end

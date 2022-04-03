@@ -6,17 +6,29 @@ module ActiveActivity
   if defined?(Redis)
     # The main backend for production use via Redis
     #
-    # It pushes requests to start and stop new jobs into the keys `start` and `stop`.
-    # Once started, jobs are in the `running` key which is also used to start the system
-    # back up after a shutdown.
+    # While it should be possible to implement other backends, Redis is the most practical
+    # one for now as it provides both a way to store the information about which activities
+    # are supposed to be running and a blocking read that returns when new commands are
+    # queued.
+    #
+    # It pushes requests to start and stop new jobs into the key `command` (to ensure
+    # they're processed in order of insertion).
+    # Once started, jobs are added to the `running` key which is also used to start the
+    # system back up after a shutdown.
     class RedisBackend
       KEY_PREFIX = 'active_activity.'
-      DEFAULT_URL = 'redis://localhost:6379/2'
+      DEFAULT_URL = 'redis://localhost:6379/' # 🤷 better to have some sensible default than none
+      DEFAULT_DB = 0
+      DEFAULT_DB_TESTS = 1
 
-      def initialize(url = DEFAULT_URL)
+      def initialize(url = nil)
+        url ||= determine_default_url
         @redis = Redis.new(url: url)
       end
 
+      # helps to ensure that no two instances are using the same
+      # Redis object as it would cause problems when one thread
+      # wants to write while the other blocks while polling
       def initialize_copy(orig)
         @redis = Redis.new(orig.redis_connection)
       end
@@ -36,6 +48,8 @@ module ActiveActivity
         @redis.rpush(key_name('command'), encoded)
       end
 
+      # mostly for testing purposes but might also be used to clean up
+      # state if, for example an activity's class doesn't exist anymore
       def reset
         @redis.del(running_key)
         @redis.del(key_name('command'))
@@ -86,7 +100,7 @@ module ActiveActivity
 
       # @return [Symbol] either :start or :stop
       def check_command(cmd)
-        raise ArgumentError unless %w[start stop].include?(cmd)
+        raise ArgumentError unless %w[start stop].include?(cmd.to_s)
         cmd.to_sym
       end
 
@@ -95,7 +109,7 @@ module ActiveActivity
       end
 
       def decode(encoded)
-        cmd, clazz, args, kwargs = JSON.parse(encoded).fetch_values('command', 'clazz', 'args', 'kwargs')
+        cmd, clazz, args, kwargs = JSON.parse(encoded, symbolize_names: true).fetch_values(:command, :clazz, :args, :kwargs)
         [check_command(cmd), clazz, args, kwargs.with_indifferent_access]
       end
 
@@ -107,6 +121,16 @@ module ActiveActivity
                     kwargs: kwargs,
                     started_at: Time.current
                   })
+      end
+
+      def determine_default_url
+        ENV['REDIS_URL'].presence ||
+          (DEFAULT_URL + environment_specific_database_number.to_s)
+      end
+
+      def environment_specific_database_number
+        return DEFAULT_DB unless defined?(Rails) && Rails.env.test?
+        DEFAULT_DB_TESTS
       end
     end
   else

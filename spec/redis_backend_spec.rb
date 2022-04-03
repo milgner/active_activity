@@ -12,7 +12,7 @@ module ActiveActivity
       expect(redis_connection).to be_a Hash
       expect(redis_connection[:host]).to eq 'localhost'
       expect(redis_connection[:port]).to eq 6379
-      expect(redis_connection[:db]).to eq 2
+      expect(redis_connection[:db]).to eq 0
     end
 
     describe '#handle_new_activities' do

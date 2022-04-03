@@ -94,7 +94,7 @@ module ActiveActivity
     end
 
     def run_until_stopped(activity_cancellation, class_name, args, kwargs)
-      log_info("Starting activtiy: #{class_name}[#{args}, #{kwargs}")
+      log_info("Starting activity: #{class_name}[#{args}, #{kwargs}")
       loop do
         begin
           instance = instantiate(class_name, args, kwargs) || return
@@ -131,8 +131,9 @@ module ActiveActivity
     def stop
       # can't directly access from within signal handlers
       # this is a sub-optimal workaround
+      origin = @global_cancellation_origin
       Thread.new do
-        @global_cancellation_origin.resolve
+        origin.resolve
       end
     end
   end

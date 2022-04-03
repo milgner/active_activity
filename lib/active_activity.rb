@@ -21,9 +21,12 @@ module ActiveActivity
 
     def default_backend
       if defined?(RedisBackend)
-        RedisBackend.new
+        RedisBackend.new(self.config.redis_url)
       else
         raise 'No activity backend configured and no Redis available for default backend'
+      end.tap do |backend|
+        # prevent it from starting anything left-over from previous tests
+        backend.reset if defined?(Rails) && Rails.env.test?
       end
     end
   end

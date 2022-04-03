@@ -5,6 +5,10 @@ namespace :activities do
   task run: :environment do
     ActiveActivity.setup
 
-    ActiveActivity::Runner.new(ActiveActivity.config).start
+    runner = ActiveActivity::Runner.new(ActiveActivity.config)
+    runner.start
+    # TODO: find out why Ruby doesn't exit by itself
+    # probably to do with the concurrent pool, but all of its tasks did shut down
+    exit!
   end
 end
